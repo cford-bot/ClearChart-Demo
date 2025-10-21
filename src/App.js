@@ -277,7 +277,7 @@ const response = await fetch(`${apiUrl}/api/chat`, {
     setLoading(false);
   }
 };
-  const handleKeyDown = (event) => {
+  const handleKeyPress = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
