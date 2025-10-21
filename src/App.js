@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Mic, MicOff } from 'lucide-react';
 
 // Embedded Knowledge Base
 const KNOWLEDGE_BASE = {
@@ -163,6 +163,8 @@ export default function ClearChartChatbot() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
+  const [isRecording, setIsRecording] = useState(false);
+const recognitionRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -171,6 +173,57 @@ export default function ClearChartChatbot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+  // Initialize speech recognition
+useEffect(() => {
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+
+    recognitionRef.current.onresult = (event) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        setInput(prev => prev + finalTranscript);
+      }
+    };
+
+    recognitionRef.current.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsRecording(false);
+    };
+
+    recognitionRef.current.onend = () => {
+      setIsRecording(false);
+    };
+  }
+}, []);
+
+const toggleRecording = () => {
+  if (!recognitionRef.current) {
+    alert('Speech recognition is not supported in your browser. Please use Chrome or Safari.');
+    return;
+  }
+
+  if (isRecording) {
+    recognitionRef.current.stop();
+    setIsRecording(false);
+  } else {
+    recognitionRef.current.start();
+    setIsRecording(true);
+  }
+};
 
   const sendMessage = async (messageText) => {
     const text = messageText || input;
@@ -334,25 +387,43 @@ const response = await fetch(`${apiUrl}/api/chat`, {
       <div className="border-t shadow-lg" style={{ backgroundColor: '#ECEEE1', borderColor: '#80A281' }}>
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex gap-2 items-end">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your message or choose an option above..."
-              className="flex-1 px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 resize-none bg-white"
-              style={{ borderColor: '#80A281', focusRingColor: '#80A281' }}
-              rows="1"
-              disabled={loading}
-            />
-            <button
-              onClick={() => sendMessage()}
-              disabled={loading || !input.trim()}
-              className="px-6 py-3 text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 font-medium"
-              style={{ backgroundColor: '#80A281' }}
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
+  <textarea
+    value={input}
+    onChange={(e) => setInput(e.target.value)}
+    onKeyPress={handleKeyPress}
+    placeholder="Type your message or choose an option above..."
+    className="flex-1 px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 resize-none bg-white"
+    style={{ borderColor: '#80A281', focusRingColor: '#80A281' }}
+    rows="1"
+    disabled={loading}
+  />
+  <button
+    onClick={toggleRecording}
+    disabled={loading}
+    className={`px-4 py-3 rounded-xl transition-all flex items-center gap-2 font-medium ${
+      isRecording 
+        ? 'bg-red-500 text-white animate-pulse' 
+        : 'bg-white text-gray-700 border-2 hover:bg-gray-50'
+    }`}
+    style={!isRecording ? { borderColor: '#80A281' } : {}}
+    title={isRecording ? 'Stop recording' : 'Start voice input'}
+  >
+    {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+  </button>
+  <button
+    onClick={() => sendMessage()}
+    disabled={loading || !input.trim()}
+    className="px-6 py-3 text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 font-medium"
+    style={{ backgroundColor: '#80A281' }}
+  >
+    <Send className="w-5 h-5" />
+  </button>
+</div>
+{isRecording && (
+  <p className="text-xs text-red-500 mt-2 text-center animate-pulse">
+    🔴 Recording... Click the microphone button to stop
+  </p>
+)}
           <p className="text-xs text-gray-500 mt-2 text-center">
             ClearChart by ResponderWorx • Powered by Claude AI • For informational purposes only
           </p>
